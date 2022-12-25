@@ -99,7 +99,7 @@ renderer.toneMappingExposure = 0.4;
 
 let f50;
 
-//load the hdr file
+//load the hdr file , comment this if you want to run faster
 rgbeloader.load(
   "./car_models/MR_INT-005_WhiteNeons_NAD.hdr",
   function (texture) {
@@ -120,6 +120,19 @@ rgbeloader.load(
     });
   }
 );
+
+//if you want the project to run faster uncomment the code below
+// loader.load("./car_models/ff50.gltf", function (gltf) {
+//   const model = gltf.scene;
+//   scene.add(model);
+//   f50 = model;
+//   f50.traverse(function (node) {
+//     if (node.isMesh) {
+//       node.castShadow = true;
+//       node.receiveShadow = true;
+//     }
+//   });
+// });
 
 //create eventlistner that moves the car and camera when keyboard is clicked
 document.addEventListener("keydown", function (e) {
