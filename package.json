@@ -1,0 +1,25 @@
+{
+  "name": "graphics-project",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@parcel/config-default": "^2.8.0",
+    "parcel": "^2.8.0",
+    "parcel-reporter-static-files-copy": "^1.4.0"
+  },
+  "dependencies": {
+    "dat.gui": "^0.7.9",
+    "three": "^0.146.0",
+    "three-gltf-loader": "^1.111.0"
+  },
+  "staticFiles": {
+    "staticOutPath": "car_models"
+  }
+}
