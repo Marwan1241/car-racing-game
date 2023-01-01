@@ -67,6 +67,9 @@ function initLights(scene) {
   return spotLight;
 }
 
+// Function to set up the track (ebby)
+function createTrack(scene) {}
+
 // Function to set up the plane
 function initPlane(scene) {
   roadTexture = new THREE.TextureLoader().load(roadmap);
@@ -132,6 +135,12 @@ function moveModelOnKeyPress(f50) {
   });
 }
 
+// Function to animate the model movement (Beshoy)
+function modelAnimation(f50) {}
+
+// Function to detect collision (Stimpy)
+function collisionDetection(f50) {}
+
 // Function to set up the hdr environment
 function initHDR(scene) {
   const rgbeloader = new RGBELoader();
@@ -149,6 +158,8 @@ function animate() {
   requestAnimationFrame(animate);
   // the event listener for keypress events
   moveModelOnKeyPress(f50);
+
+  modelAnimation(f50);
 
   renderer.render(scene, camera);
 }
