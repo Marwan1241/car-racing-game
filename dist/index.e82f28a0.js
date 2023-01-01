@@ -598,6 +598,8 @@ function initLights(scene1) {
     scene1.add(spotLight);
     return spotLight;
 }
+// Function to set up the track (ebby)
+function createTrack(scene1) {}
 // Function to set up the plane
 function initPlane(scene1) {
     roadTexture = new _threeModuleJs.TextureLoader().load((0, _roadtestJpgDefault.default));
@@ -621,7 +623,9 @@ function initModel(scene1) {
         f50 = gltf.scene;
         f50.scale.set(2, 2, 2);
         f50.castShadow = true;
-        f50.receiveShadow = true;
+        f50.traverse((o)=>{
+            if (o.isMesh) o.castShadow = true;
+        });
         scene1.add(f50);
     });
 }
@@ -650,6 +654,10 @@ function moveModelOnKeyPress(f50) {
         f50.position.z -= speed;
     });
 }
+// Function to animate the model movement (Beshoy)
+function modelAnimation(f50) {}
+// Function to detect collision (Stimpy)
+function collisionDetection(f50) {}
 // Function to set up the hdr environment
 function initHDR(scene1) {
     const rgbeloader = new (0, _rgbeloaderJs.RGBELoader)();
@@ -663,6 +671,7 @@ function animate() {
     requestAnimationFrame(animate);
     // the event listener for keypress events
     moveModelOnKeyPress(f50);
+    modelAnimation(f50);
     renderer.render(scene, camera);
 }
 function init() {

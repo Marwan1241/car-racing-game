@@ -99,7 +99,12 @@ function initModel(scene) {
     f50 = gltf.scene;
     f50.scale.set(2, 2, 2);
     f50.castShadow = true;
-    f50.receiveShadow = true;
+    f50.traverse((o) => {
+      if (o.isMesh) {
+        o.castShadow = true;
+      }
+    });
+
     scene.add(f50);
   });
 }
