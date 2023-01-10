@@ -1,7 +1,9 @@
 import * as THREE from "three/build/three.module.js";
+import * as CANNON from "cannon-es";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
 import { RGBELoader } from "three/examples/jsm/loaders/RGBELoader.js";
+import CannonDebugger from "cannon-es-debugger";
 import top from "../res/top.jpg";
 import bottom from "../res/bottom.jpg";
 import left from "../res/left.jpg";
@@ -9,6 +11,8 @@ import right from "../res/right.jpg";
 import front from "../res/front.jpg";
 import back from "../res/back.jpg";
 import roadmap from "../res/roadtest.jpg";
+import wheelMap from "../res/wheels.png";
+import carMap from "../res/car.jpg";
 
 // Function to set up the renderer
 function initRenderer() {
@@ -56,8 +60,8 @@ function initControls(camera) {
 
 // Function to set up the lights
 function initLights(scene) {
-  spotLight = new THREE.SpotLight(0xffffff, 2, 0, Math.PI / 6, 0.5, 1);
-  spotLight.position.set(-7, 20, 270);
+  spotLight = new THREE.SpotLight(0xffffff, 1, 0, Math.PI / 6, 0.5, 1);
+  spotLight.position.set(-7, 20, 0);
   spotLight.castShadow = true;
   spotLight.shadow.mapSize.width = 1024;
   spotLight.shadow.mapSize.height = 1024;
@@ -67,14 +71,11 @@ function initLights(scene) {
   return spotLight;
 }
 
-// Function to set up the track (ebby)
-function createTrack(scene) {}
-
 // Function to set up the plane
 function initPlane(scene) {
   roadTexture = new THREE.TextureLoader().load(roadmap);
   plane = new THREE.Mesh(
-    new THREE.PlaneGeometry(15, 500),
+    new THREE.PlaneGeometry(20, 500),
     new THREE.MeshStandardMaterial({
       color: 0xffffff,
       side: THREE.DoubleSide,
@@ -86,65 +87,221 @@ function initPlane(scene) {
   roadTexture.repeat.set(1, 100);
   plane.receiveShadow = true;
   scene.add(plane);
-  return plane;
 }
 
-// Function to set up the model
-let f50;
-
-function initModel(scene) {
-  loader = new GLTFLoader();
-
-  loader.load("./car_models/ff50.gltf", function (gltf) {
-    f50 = gltf.scene;
-    f50.scale.set(2, 2, 2);
-    f50.castShadow = true;
-    f50.traverse((o) => {
-      if (o.isMesh) {
-        o.castShadow = true;
-      }
-    });
-
-    scene.add(f50);
+//set up cannon debugger
+function initCannonDebugger() {
+  cannonDebugger = new CannonDebugger(scene, physicsWorld, {
+    color: 0x0000ff,
   });
 }
 
-function moveModelOnKeyPress(f50) {
-  // Set the speed at which the model moves
-  const speed = 0.01;
+//Function to set up the physics world
+function initPhysicsWorld() {
+  physicsWorld = new CANNON.World({
+    gravity: new CANNON.Vec3(0, -9.82, 0),
+  });
+}
 
-  // Add event listener for keydown events
+//Function to create cannon js static plane
+function initCannonPlane() {
+  groundBody = new CANNON.Body({
+    type: CANNON.Body.STATIC,
+    //infinite geometric plane
+    shape: new CANNON.Box(new CANNON.Vec3(10, 250, 0.1)),
+  });
+
+  groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
+  physicsWorld.addBody(groundBody);
+}
+
+//Function to create cannon js car body
+function initCarBody() {
+  carBody = new CANNON.Body({
+    mass: 20,
+    position: new CANNON.Vec3(0, 6, 0),
+    shape: new CANNON.Box(new CANNON.Vec3(4, 0.5, 2)),
+  });
+
+  //rotate the carBody 90 degrees to the left
+  carBody.quaternion.setFromEuler(0, -Math.PI / 2, 0);
+
+  physicsWorld.addBody(carBody);
+}
+
+//Function to create the vehicle
+function initVehicle() {
+  vehicle = new CANNON.RigidVehicle({
+    chassisBody: carBody,
+  });
+
+  const mass = 1;
+  const axisWidth = 5;
+  const wheelShape = new CANNON.Sphere(0.8);
+  const wheelMaterial = new CANNON.Material("wheelMaterial");
+  const down = new CANNON.Vec3(0, -1, 0);
+
+  // Create the wheel bodies
+  wheelBodies = [];
+  for (let i = 0; i < 4; i++) {
+    const wheelBody = new CANNON.Body({
+      mass,
+      material: wheelMaterial,
+    });
+    wheelBody.addShape(wheelShape);
+    wheelBody.angularDamping = 0.4;
+    wheelBodies.push(wheelBody);
+  }
+
+  //add wheels to vehicle
+
+  vehicle.addWheel({
+    body: wheelBodies[0],
+    position: new CANNON.Vec3(-2, 0, axisWidth / 3),
+    axis: new CANNON.Vec3(0, 0, 1),
+    direction: down,
+  });
+
+  vehicle.addWheel({
+    body: wheelBodies[1],
+    position: new CANNON.Vec3(-2, 0, -axisWidth / 3),
+    axis: new CANNON.Vec3(0, 0, 1),
+    direction: down,
+  });
+
+  vehicle.addWheel({
+    body: wheelBodies[2],
+    position: new CANNON.Vec3(2, 0, axisWidth / 3),
+    axis: new CANNON.Vec3(0, 0, 1),
+    direction: down,
+  });
+
+  vehicle.addWheel({
+    body: wheelBodies[3],
+    position: new CANNON.Vec3(2, 0, -axisWidth / 3),
+    axis: new CANNON.Vec3(0, 0, 1),
+    direction: down,
+  });
+
+  // Add the vehicle to the world
+  vehicle.addToWorld(physicsWorld);
+}
+
+function moveCarOnKeyPress() {
   document.addEventListener("keydown", (event) => {
-    // Get the current position of the model
-    const currentPosition = f50.position;
-    const currentRotation = f50.rotation.y;
+    const maxSteerVal = Math.PI / 6;
+    const maxForce = 60;
 
-    // Check which key was pressed
-    if (event.code === "ArrowRight") {
-      // Move the model to the right
-      f50.position.x += speed;
-      // Rotate the model to the right
-      f50.rotation.y = currentRotation - 0.1;
-    } else if (event.code === "ArrowLeft") {
-      // Move the model to the left
-      f50.position.x -= speed;
-      // Rotate the model to the left
-      f50.rotation.y = currentRotation + 0.1;
-    } else if (event.code === "ArrowUp") {
-      // Move the model forward
-      f50.position.z += speed;
-    } else if (event.code === "ArrowDown") {
-      // Move the model backward
-      f50.position.z -= speed;
+    switch (event.key) {
+      case "w":
+      case "ArrowUp":
+        vehicle.setWheelForce(maxForce, 0);
+        vehicle.setWheelForce(maxForce, 1);
+        break;
+
+      case "s":
+      case "ArrowDown":
+        vehicle.setWheelForce(-maxForce, 0);
+        vehicle.setWheelForce(-maxForce, 1);
+        break;
+
+      case "a":
+      case "ArrowLeft":
+        vehicle.setSteeringValue(maxSteerVal, 0);
+        vehicle.setSteeringValue(maxSteerVal, 1);
+        break;
+
+      case "d":
+      case "ArrowRight":
+        vehicle.setSteeringValue(-maxSteerVal, 0);
+        vehicle.setSteeringValue(-maxSteerVal, 1);
+        break;
+    }
+  });
+
+  document.addEventListener("keyup", (event) => {
+    switch (event.key) {
+      case "w":
+      case "ArrowUp":
+        vehicle.setWheelForce(0, 0);
+        vehicle.setWheelForce(0, 1);
+        break;
+
+      case "s":
+      case "ArrowDown":
+        vehicle.setWheelForce(0, 0);
+        vehicle.setWheelForce(0, 1);
+        break;
+
+      case "a":
+      case "ArrowLeft":
+        vehicle.setSteeringValue(0, 0);
+        vehicle.setSteeringValue(0, 1);
+        break;
+
+      case "d":
+      case "ArrowRight":
+        vehicle.setSteeringValue(0, 0);
+        vehicle.setSteeringValue(0, 1);
+        break;
     }
   });
 }
 
-// Function to animate the model movement (Beshoy)
-function modelAnimation(f50) {}
+function initCarGeometry() {
+  wheelmap = new THREE.TextureLoader().load(wheelMap);
+  carmap = new THREE.TextureLoader().load(carMap);
+  wheelmap.wrapT = THREE.RepeatWrapping;
+  carMap.wrapT = THREE.RepeatWrapping;
 
-// Function to detect collision (Stimpy)
-function collisionDetection(f50) {}
+  boxGeometry = new THREE.Mesh(
+    new THREE.BoxGeometry(8, 1, 4),
+    new THREE.MeshStandardMaterial({
+      map: carmap,
+    })
+  );
+
+  boxGeometry.castShadow = true;
+
+  sphereGeometry0 = new THREE.Mesh(
+    new THREE.SphereGeometry(0.8),
+    new THREE.MeshStandardMaterial({
+      map: wheelmap,
+    })
+  );
+
+  sphereGeometry1 = new THREE.Mesh(
+    new THREE.SphereGeometry(0.8),
+    new THREE.MeshStandardMaterial({
+      map: wheelmap,
+    })
+  );
+
+  sphereGeometry2 = new THREE.Mesh(
+    new THREE.SphereGeometry(0.8),
+    new THREE.MeshStandardMaterial({
+      map: wheelmap,
+    })
+  );
+
+  sphereGeometry3 = new THREE.Mesh(
+    new THREE.SphereGeometry(0.8),
+    new THREE.MeshStandardMaterial({
+      map: wheelmap,
+    })
+  );
+
+  sphereGeometry0.castShadow = true;
+  sphereGeometry1.castShadow = true;
+  sphereGeometry2.castShadow = true;
+  sphereGeometry3.castShadow = true;
+
+  scene.add(boxGeometry);
+  scene.add(sphereGeometry0);
+  scene.add(sphereGeometry1);
+  scene.add(sphereGeometry2);
+  scene.add(sphereGeometry3);
+}
 
 // Function to set up the hdr environment
 function initHDR(scene) {
@@ -162,9 +319,29 @@ function initHDR(scene) {
 function animate() {
   requestAnimationFrame(animate);
   // the event listener for keypress events
-  moveModelOnKeyPress(f50);
 
-  modelAnimation(f50);
+  physicsWorld.fixedStep();
+  cannonDebugger.update();
+
+  moveCarOnKeyPress();
+
+  plane.position.copy(groundBody.position);
+  plane.quaternion.copy(groundBody.quaternion);
+
+  boxGeometry.position.copy(carBody.position);
+  boxGeometry.quaternion.copy(carBody.quaternion);
+
+  sphereGeometry0.position.copy(wheelBodies[0].position);
+  sphereGeometry0.quaternion.copy(wheelBodies[0].quaternion);
+
+  sphereGeometry1.position.copy(wheelBodies[1].position);
+  sphereGeometry1.quaternion.copy(wheelBodies[1].quaternion);
+
+  sphereGeometry2.position.copy(wheelBodies[2].position);
+  sphereGeometry2.quaternion.copy(wheelBodies[2].quaternion);
+
+  sphereGeometry3.position.copy(wheelBodies[3].position);
+  sphereGeometry3.quaternion.copy(wheelBodies[3].quaternion);
 
   renderer.render(scene, camera);
 }
@@ -179,6 +356,12 @@ function init() {
   // Set up the camera
   const camera = initCamera();
 
+  // Set up the physics world
+  initPhysicsWorld();
+
+  // Set up cannon debugger
+  initCannonDebugger(scene, physicsWorld);
+
   // Set up the orbit controls
   initControls(camera);
 
@@ -186,10 +369,15 @@ function init() {
   initLights(scene);
 
   // Set up the plane
+  initCannonPlane();
+
+  // Set up the plane
   initPlane(scene);
 
-  // Set up the model
-  initModel(scene);
+  //Set up the vehicle
+  initCarBody();
+  initVehicle();
+  initCarGeometry();
 
   // Set up the HDR environment
   initHDR(scene);
